@@ -28,6 +28,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # A shallow checkout fetches no tags, so the next version would start from v0.0.0.
+          fetch-depth: 0
 
       - name: Calculate the next version
         id: version
