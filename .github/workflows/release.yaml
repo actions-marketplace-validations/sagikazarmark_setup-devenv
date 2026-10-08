@@ -68,7 +68,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          url="$(gh release create "$VERSION" --draft --verify-tag --generate-notes --title "$VERSION")"
+          # gh puts these notes before the generated ones.
+          notes="$(cat <<EOF
+          ## Usage
+
+          \`\`\`yaml
+          - name: Set up devenv
+            uses: $GITHUB_REPOSITORY@$(git rev-parse HEAD) # $VERSION
+          \`\`\`
+          EOF
+          )"
+
+          url="$(gh release create "$VERSION" --draft --verify-tag --generate-notes --notes "$notes" --title "$VERSION")"
 
           {
             echo "Drafted release [$VERSION]($url)."
