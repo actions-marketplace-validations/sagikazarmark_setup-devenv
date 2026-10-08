@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (${{ matrix.devenv-version || 'nixpkgs' }} on ${{ matrix.system }})
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # An empty version installs devenv from nixpkgs.
+        devenv-version: ["", "2.4.0"]
+        system: [x86_64-linux, aarch64-linux, aarch64-darwin]
+        include:
+          - system: x86_64-linux
+            runner: ubuntu-26.04
+          - system: aarch64-linux
+            runner: ubuntu-26.04-arm
+          - system: aarch64-darwin
+            runner: macos-15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up devenv
+        uses: ./
+        with:
+          devenv-version: ${{ matrix.devenv-version }}
+
+      - name: Check the devenv version
+        if: matrix.devenv-version != ''
+        env:
+          DEVENV_VERSION: ${{ matrix.devenv-version }}
+        run: devenv version | grep -F "devenv $DEVENV_VERSION"
+
+      - name: Lint workflows in the devenv shell
+        run: devenv shell actionlint
+
+  options:
+    name: Test (existing Nix, no shell)
+    runs-on: ubuntu-26.04
+
+    steps:
+      # The workspace root has no devenv.nix, so building the shell would fail.
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          path: setup-devenv
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+
+      - name: Set up devenv
+        uses: ./setup-devenv
+        with:
+          install-nix: false
+          build-shell: false
+
+      - name: Check devenv
+        run: devenv version

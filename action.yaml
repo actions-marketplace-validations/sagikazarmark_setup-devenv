@@ -1,0 +1,89 @@
+name: Set up devenv
+description: Install Nix and devenv, and pull from the devenv binary cache.
+
+branding:
+  icon: package
+  color: blue
+
+inputs:
+  devenv-version:
+    description: >-
+      Version of devenv to install from its flake (for example `2.4.0` or `main`).
+      Installs devenv from nixpkgs when empty.
+    required: false
+    default: ""
+  install-nix:
+    description: Install Nix. Disable it when the runner already has Nix.
+    required: false
+    default: "true"
+  nix-config:
+    description: Gets appended to `/etc/nix/nix.conf` when Nix is installed.
+    required: false
+    default: ""
+  nix-install-url:
+    description: URL of the Nix installer script.
+    required: false
+    default: ""
+  nix-install-options:
+    description: Additional flags passed to the Nix installer script.
+    required: false
+    default: ""
+  github-access-token:
+    description: Token Nix uses to pull from GitHub. Defaults to the workflow token.
+    required: false
+    default: ""
+  cachix-caches:
+    description: >-
+      Comma-separated list of additional Cachix caches to pull from,
+      alongside the devenv cache.
+    required: false
+    default: ""
+  build-shell:
+    description: >-
+      Build the devenv shell of the project in the working directory.
+      Disable it when the repository has no devenv configuration.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Install Nix
+      if: inputs.install-nix == 'true'
+      uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+      with:
+        extra_nix_config: ${{ inputs.nix-config }}
+        github_access_token: ${{ inputs.github-access-token }}
+        install_url: ${{ inputs.nix-install-url }}
+        install_options: ${{ inputs.nix-install-options }}
+
+    - name: Use the devenv binary cache
+      uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
+      with:
+        name: devenv
+        extraPullNames: ${{ inputs.cachix-caches }}
+
+    - name: Install devenv
+      shell: bash
+      env:
+        DEVENV_VERSION: ${{ inputs.devenv-version }}
+      run: |
+        if [ -z "$DEVENV_VERSION" ]; then
+          nix profile install nixpkgs#devenv
+        else
+          # Release tags carry a v prefix; branches such as main do not.
+          case "$DEVENV_VERSION" in
+            [0-9]*) ref="v$DEVENV_VERSION" ;;
+            *) ref="$DEVENV_VERSION" ;;
+          esac
+          nix profile install "github:cachix/devenv/$ref"
+        fi
+
+    - name: Show the devenv version
+      shell: bash
+      run: devenv version
+
+    - name: Build the devenv shell
+      if: inputs.build-shell == 'true'
+      shell: bash
+      run: devenv build shell
