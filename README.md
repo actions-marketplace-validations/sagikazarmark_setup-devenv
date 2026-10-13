@@ -49,6 +49,21 @@ Set `profile` to activate a [devenv profile](https://devenv.sh/profiles/) for th
 The action sets the profile as the default in `devenv.local.yaml`, so later commands need no `--profile` flag.
 Passing `--profile` to a command still overrides it.
 
+### Push to a Cachix cache
+
+Set `cachix-cache` to pull from a cache and push the paths the job builds to it.
+When Nix runs as a trusted user, Cachix pushes through a post-build hook, so mainly the paths the job builds get pushed.
+Otherwise it falls back to scanning the store, which also pushes paths substituted from other caches during the job.
+Push from the default branch only, so pull requests do not write to the cache:
+
+```yaml
+- uses: sagikazarmark/setup-devenv@v1
+  with:
+    cachix-cache: my-cache
+    cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+    cachix-skip-push: ${{ github.ref_name != github.event.repository.default_branch }}
+```
+
 ### Skip building the shell
 
 Disable `build-shell` when the repository has no devenv configuration, or when you only need the `devenv` binary:
@@ -70,6 +85,9 @@ Disable `build-shell` when the repository has no devenv configuration, or when y
 | `nix-install-options` | Additional flags passed to the Nix installer script. | `""` |
 | `github-access-token` | Token Nix uses to pull from GitHub. Defaults to the workflow token. | `""` |
 | `cachix-caches` | Comma-separated list of additional Cachix caches to pull from, alongside the devenv cache. | `""` |
+| `cachix-cache` | Cachix cache to pull from and push the paths the job builds to. Requires `cachix-auth-token` to push. | `""` |
+| `cachix-auth-token` | Auth token for `cachix-cache`, which also grants pushing. | `""` |
+| `cachix-skip-push` | Pull from `cachix-cache` without pushing to it. | `false` |
 | `build-shell` | Build the devenv shell of the project in the working directory. | `true` |
 | `profile` | devenv profile to activate by default. Gets written to `devenv.local.yaml` in the working directory. | `""` |
 
