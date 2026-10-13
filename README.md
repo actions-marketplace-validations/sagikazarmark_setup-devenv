@@ -52,7 +52,8 @@ Passing `--profile` to a command still overrides it.
 ### Push to a Cachix cache
 
 Set `cachix-cache` to pull from a cache and push the paths the job builds to it.
-Paths substituted from another cache are not pushed.
+When Nix runs as a trusted user, Cachix pushes through a post-build hook, so mainly the paths the job builds get pushed.
+Otherwise it falls back to scanning the store, which also pushes paths substituted from other caches during the job.
 Push from the default branch only, so pull requests do not write to the cache:
 
 ```yaml
@@ -60,7 +61,7 @@ Push from the default branch only, so pull requests do not write to the cache:
   with:
     cachix-cache: my-cache
     cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
-    cachix-skip-push: ${{ github.ref != 'refs/heads/main' }}
+    cachix-skip-push: ${{ github.ref_name != github.event.repository.default_branch }}
 ```
 
 ### Skip building the shell

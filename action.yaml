@@ -77,8 +77,9 @@ runs:
         install_url: ${{ inputs.nix-install-url }}
         install_options: ${{ inputs.nix-install-options }}
 
-    # Pushing works through a post-build hook, so only paths the job builds
-    # are pushed, never ones substituted from another cache.
+    # When the Nix user is trusted, pushing works through a post-build hook, so
+    # mainly paths the job builds are pushed. Otherwise cachix-action falls back
+    # to scanning the store, which also pushes paths substituted during the job.
     - name: Use the binary caches
       uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
       with:
