@@ -38,6 +38,20 @@ inputs:
       alongside the devenv cache.
     required: false
     default: ""
+  cachix-cache:
+    description: >-
+      Cachix cache to pull from and push the paths the job builds to.
+      Requires `cachix-auth-token` to push.
+    required: false
+    default: ""
+  cachix-auth-token:
+    description: Auth token for `cachix-cache`, which also grants pushing.
+    required: false
+    default: ""
+  cachix-skip-push:
+    description: Pull from `cachix-cache` without pushing to it.
+    required: false
+    default: "false"
   build-shell:
     description: >-
       Build the devenv shell of the project in the working directory.
@@ -63,11 +77,15 @@ runs:
         install_url: ${{ inputs.nix-install-url }}
         install_options: ${{ inputs.nix-install-options }}
 
-    - name: Use the devenv binary cache
+    # Pushing works through a post-build hook, so only paths the job builds
+    # are pushed, never ones substituted from another cache.
+    - name: Use the binary caches
       uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
       with:
-        name: devenv
-        extraPullNames: ${{ inputs.cachix-caches }}
+        name: ${{ inputs.cachix-cache || 'devenv' }}
+        extraPullNames: ${{ inputs.cachix-cache && (inputs.cachix-caches && format('devenv,{0}', inputs.cachix-caches) || 'devenv') || inputs.cachix-caches }}
+        authToken: ${{ inputs.cachix-auth-token }}
+        skipPush: ${{ inputs.cachix-cache == '' || inputs.cachix-skip-push == 'true' }}
 
     - name: Install devenv
       shell: bash
