@@ -34,6 +34,21 @@ devenv comes from nixpkgs by default. Set `devenv-version` to install a release 
     cachix-caches: my-cache,another-cache
 ```
 
+### Activate a profile
+
+Set `profile` to activate a [devenv profile](https://devenv.sh/profiles/) for the shell build and every later devenv command in the job:
+
+```yaml
+- uses: sagikazarmark/setup-devenv@v1
+  with:
+    profile: ci
+
+- run: devenv test # runs with the ci profile
+```
+
+The action sets the profile as the default in `devenv.local.yaml`, so later commands need no `--profile` flag.
+Passing `--profile` to a command still overrides it.
+
 ### Skip building the shell
 
 Disable `build-shell` when the repository has no devenv configuration, or when you only need the `devenv` binary:
@@ -56,6 +71,7 @@ Disable `build-shell` when the repository has no devenv configuration, or when y
 | `github-access-token` | Token Nix uses to pull from GitHub. Defaults to the workflow token. | `""` |
 | `cachix-caches` | Comma-separated list of additional Cachix caches to pull from, alongside the devenv cache. | `""` |
 | `build-shell` | Build the devenv shell of the project in the working directory. | `true` |
+| `profile` | devenv profile to activate by default. Gets written to `devenv.local.yaml` in the working directory. | `""` |
 
 ## Releasing
 
