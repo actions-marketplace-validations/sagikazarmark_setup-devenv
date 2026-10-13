@@ -44,6 +44,12 @@ inputs:
       Disable it when the repository has no devenv configuration.
     required: false
     default: "true"
+  profile:
+    description: >-
+      devenv profile to activate by default, for the shell build and later devenv commands.
+      Gets written to `devenv.local.yaml` in the working directory.
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -82,6 +88,25 @@ runs:
     - name: Show the devenv version
       shell: bash
       run: devenv version
+
+    - name: Set the default devenv profile
+      if: inputs.profile != ''
+      shell: bash
+      env:
+        PROFILE: ${{ inputs.profile }}
+      run: |
+        if grep -q '^profile:' devenv.local.yaml 2>/dev/null; then
+          echo "::error::devenv.local.yaml already sets a profile"
+          exit 1
+        fi
+
+        # Keep appended content off the last line of an existing file.
+        if [ -s devenv.local.yaml ] && [ -n "$(tail -c 1 devenv.local.yaml)" ]; then
+          echo >> devenv.local.yaml
+        fi
+
+        # Single-quote the name so YAML always reads it as a string.
+        printf "profile: '%s'\n" "${PROFILE//\'/\'\'}" >> devenv.local.yaml
 
     - name: Build the devenv shell
       if: inputs.build-shell == 'true'
