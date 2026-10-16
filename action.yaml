@@ -38,12 +38,32 @@ inputs:
       alongside the devenv cache.
     required: false
     default: ""
+  cachix-cache:
+    description: >-
+      Cachix cache to pull from and push the paths the job builds to.
+      Requires `cachix-auth-token` to push.
+    required: false
+    default: ""
+  cachix-auth-token:
+    description: Auth token for `cachix-cache`, which also grants pushing.
+    required: false
+    default: ""
+  cachix-skip-push:
+    description: Pull from `cachix-cache` without pushing to it.
+    required: false
+    default: "false"
   build-shell:
     description: >-
       Build the devenv shell of the project in the working directory.
       Disable it when the repository has no devenv configuration.
     required: false
     default: "true"
+  profile:
+    description: >-
+      devenv profile to activate by default, for the shell build and later devenv commands.
+      Gets written to `devenv.local.yaml` in the working directory.
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -57,11 +77,16 @@ runs:
         install_url: ${{ inputs.nix-install-url }}
         install_options: ${{ inputs.nix-install-options }}
 
-    - name: Use the devenv binary cache
+    # When the Nix user is trusted, pushing works through a post-build hook, so
+    # mainly paths the job builds are pushed. Otherwise cachix-action falls back
+    # to scanning the store, which also pushes paths substituted during the job.
+    - name: Use the binary caches
       uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
       with:
-        name: devenv
-        extraPullNames: ${{ inputs.cachix-caches }}
+        name: ${{ inputs.cachix-cache || 'devenv' }}
+        extraPullNames: ${{ inputs.cachix-cache && (inputs.cachix-caches && format('devenv,{0}', inputs.cachix-caches) || 'devenv') || inputs.cachix-caches }}
+        authToken: ${{ inputs.cachix-auth-token }}
+        skipPush: ${{ inputs.cachix-cache == '' || inputs.cachix-skip-push == 'true' }}
 
     - name: Install devenv
       shell: bash
@@ -82,6 +107,25 @@ runs:
     - name: Show the devenv version
       shell: bash
       run: devenv version
+
+    - name: Set the default devenv profile
+      if: inputs.profile != ''
+      shell: bash
+      env:
+        PROFILE: ${{ inputs.profile }}
+      run: |
+        if grep -q '^profile:' devenv.local.yaml 2>/dev/null; then
+          echo "::error::devenv.local.yaml already sets a profile"
+          exit 1
+        fi
+
+        # Keep appended content off the last line of an existing file.
+        if [ -s devenv.local.yaml ] && [ -n "$(tail -c 1 devenv.local.yaml)" ]; then
+          echo >> devenv.local.yaml
+        fi
+
+        # Single-quote the name so YAML always reads it as a string.
+        printf "profile: '%s'\n" "${PROFILE//\'/\'\'}" >> devenv.local.yaml
 
     - name: Build the devenv shell
       if: inputs.build-shell == 'true'
